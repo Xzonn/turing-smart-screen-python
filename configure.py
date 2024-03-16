@@ -268,7 +268,12 @@ class TuringConfigWindow:
             self.theme_author.place(x=10, y=self.theme_preview_img.height() + 15)
 
     def load_config_values(self):
-        with open("config.yaml", "rt", encoding='utf8') as stream:
+        if not os.path.exists("config.yaml"):
+            config_path = "config.template.yaml"
+        else:
+            config_path = "config.yaml"
+
+        with open(config_path, "rt", encoding='utf8') as stream:
             self.config, ind, bsi = ruamel.yaml.util.load_yaml_guess_indent(stream)
 
         try:
