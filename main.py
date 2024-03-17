@@ -41,7 +41,8 @@ try:
     import signal
     import subprocess
     import time
-    from PIL import Image
+    import tkinter
+    from PIL import Image, ImageTk
 
     if platform.system() == 'Windows':
         import win32api
@@ -60,6 +61,8 @@ except:
     except:
         os._exit(0)
 
+from library import config
+from library.lcd.lcd_simulated import LcdSimulated
 from library.log import logger
 import library.scheduler as scheduler
 from library.display import display
@@ -252,10 +255,38 @@ if __name__ == "__main__":
                                            0,
                                            hinst,
                                            None)
+
+            if isinstance(display.lcd, LcdSimulated):
+                RGB_LED_MARGIN = 20
+
+                viewer = tkinter.Tk()
+                viewer.title("Turing SysMonitor Preview")
+                viewer.iconphoto(True, tkinter.PhotoImage(file="res/icons/monitor-icon-17865/64.png"))
+                viewer.geometry(f"{display.lcd.get_width() + 2 * RGB_LED_MARGIN}x{display.lcd.get_height() + 2 * RGB_LED_MARGIN}")
+                viewer.protocol("WM_DELETE_WINDOW", clean_stop)
+                viewer.call('wm', 'attributes', '.', '-topmost', '1')  # Preview window always on top
+
+                # Display RGB backplate LEDs color as background color
+                led_color = config.THEME_DATA['display'].get("DISPLAY_RGB_LED", (255, 255, 255))
+                if isinstance(led_color, str):
+                    led_color = tuple(map(int, led_color.split(', ')))
+                viewer.configure(bg='#%02x%02x%02x' % led_color)
+
+                # Display preview in the window
+                display_image = ImageTk.PhotoImage(display.lcd.screen_image)
+                viewer_picture = tkinter.Label(viewer, image=display_image, borderwidth=0)
+                viewer_picture.place(x=RGB_LED_MARGIN, y=RGB_LED_MARGIN)
+
+                viewer.update()
+
             while True:
                 # Receive and dispatch window messages
                 win32gui.PumpWaitingMessages()
-                time.sleep(0.5)
+                if isinstance(display.lcd, LcdSimulated):
+                    display_image = ImageTk.PhotoImage(display.lcd.screen_image)
+                    viewer_picture.config(image=display_image)
+                    viewer.update()
+                time.sleep(0.04)
 
         except Exception as e:
             logger.error("Exception while creating event window: %s" % str(e))

@@ -16,41 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import mimetypes
-import shutil
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from library.lcd.lcd_comm import *
-
-SCREENSHOT_FILE = "screencap.png"
-WEBSERVER_PORT = 5678
-
-
-# This webserver offer a blank page displaying simulated screen with auto-refresh
-class SimulatedLcdWebServer(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        return
-
-    def do_GET(self):
-        if self.path == "/":
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(bytes("<img src=\"" + SCREENSHOT_FILE + "\" id=\"myImage\" />", "utf-8"))
-            self.wfile.write(bytes("<script>", "utf-8"))
-            self.wfile.write(bytes("setInterval(function() {", "utf-8"))
-            self.wfile.write(bytes("    var myImageElement = document.getElementById('myImage');", "utf-8"))
-            self.wfile.write(bytes("    myImageElement.src = '" + SCREENSHOT_FILE + "?rand=' + Math.random();", "utf-8"))
-            self.wfile.write(bytes("}, 250);", "utf-8"))
-            self.wfile.write(bytes("</script>", "utf-8"))
-        elif self.path.startswith("/" + SCREENSHOT_FILE):
-            imgfile = open(SCREENSHOT_FILE, 'rb').read()
-            mimetype = mimetypes.MimeTypes().guess_type(SCREENSHOT_FILE)[0]
-            self.send_response(200)
-            self.send_header('Content-type', mimetype)
-            self.end_headers()
-            self.wfile.write(imgfile)
-
 
 # Simulated display: write on a file instead of serial port
 class LcdSimulated(LcdComm):
@@ -58,16 +25,7 @@ class LcdSimulated(LcdComm):
                  update_queue: queue.Queue = None):
         LcdComm.__init__(self, com_port, display_width, display_height, update_queue)
         self.screen_image = Image.new("RGB", (self.get_width(), self.get_height()), (255, 255, 255))
-        self.screen_image.save("tmp", "PNG")
-        shutil.copyfile("tmp", SCREENSHOT_FILE)
         self.orientation = Orientation.PORTRAIT
-
-        try:
-            self.webServer = HTTPServer(("localhost", WEBSERVER_PORT), SimulatedLcdWebServer)
-            logger.debug("To see your simulated screen, open http://%s:%d in a browser" % ("localhost", WEBSERVER_PORT))
-            threading.Thread(target=self.webServer.serve_forever).start()
-        except OSError:
-            logger.error("Error starting webserver! An instance might already be running on port %d." % WEBSERVER_PORT)
 
     def __del__(self):
         self.closeSerial()
@@ -77,8 +35,7 @@ class LcdSimulated(LcdComm):
         return None
 
     def closeSerial(self):
-        logger.debug("Shutting down web server")
-        self.webServer.shutdown()
+        pass
 
     def InitializeComm(self):
         pass
@@ -106,8 +63,6 @@ class LcdSimulated(LcdComm):
         # Just draw the screen again with the new width/height based on orientation
         with self.update_queue_mutex:
             self.screen_image = Image.new("RGB", (self.get_width(), self.get_height()), (255, 255, 255))
-            self.screen_image.save("tmp", "PNG")
-            shutil.copyfile("tmp", SCREENSHOT_FILE)
 
     def DisplayPILImage(
             self,
@@ -135,5 +90,3 @@ class LcdSimulated(LcdComm):
 
         with self.update_queue_mutex:
             self.screen_image.paste(image, (x, y))
-            self.screen_image.save("tmp", "PNG")
-            shutil.copyfile("tmp", SCREENSHOT_FILE)
