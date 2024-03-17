@@ -168,6 +168,13 @@ def CustomStats():
     stats.Custom.stats()
 
 
+@async_job("Weather_Stats")
+@schedule(timedelta(seconds=config.THEME_DATA['STATS']['WEATHER'].get("INTERVAL", None)).total_seconds())
+def WeatherStats():
+    # print("Refresh weather stats")
+    stats.Weather.stats()
+
+
 @async_job("Queue_Handler")
 @schedule(timedelta(milliseconds=1).total_seconds())
 def QueueHandler():

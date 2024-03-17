@@ -595,7 +595,7 @@ class LcdComm(ABC):
         self.DisplayPILImage(bar_image, xc - radius, yc - radius)
 
     # Load image from the filesystem, or get from the cache if it has already been loaded previously
-    def open_image(self, bitmap_path: str) -> Image:
+    def open_image(self, bitmap_path: str) -> Image.Image:
         if bitmap_path not in self.image_cache:
             logger.debug("Bitmap " + bitmap_path + " is now loaded in the cache")
             self.image_cache[bitmap_path] = Image.open(bitmap_path)

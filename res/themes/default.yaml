@@ -219,3 +219,8 @@ STATS:
         SHOW: False
   CUSTOM:
     INTERVAL: 0
+
+  WEATHER:
+    INTERVAL: 0
+    GRAPH:
+      SHOW: False

@@ -126,6 +126,8 @@ def refresh_theme():
     if config.THEME_DATA['STATS']['CUSTOM'].get("INTERVAL", 0) > 0:
         stats.Custom.stats()
 
+    if config.THEME_DATA['STATS']['WEATHER'].get("INTERVAL", 0) > 0:
+        stats.Weather.stats()
 
 if __name__ == "__main__":
     def on_closing():

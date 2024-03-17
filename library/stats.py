@@ -824,3 +824,133 @@ class Custom:
                 theme_data = config.THEME_DATA['STATS']['CUSTOM'][custom_stat].get("LINE_GRAPH", None)
                 if theme_data is not None and last_values is not None:
                     display_themed_line_graph(theme_data=theme_data, values=last_values)
+
+import time
+from typing import Any
+from PIL import Image, ImageFont
+import library.sensors.sensors_weather as sensors_weather
+
+
+class Weather:
+    IMAGES_LIST = [
+        {
+            "key": "current_weather",
+            "api": "get_current_weather",
+            "draw": "get_current_weather",
+            "cache_seconds": 600,
+        },
+        {
+            "key": "hourly_forecast",
+            "api": "get_hourly_forecast",
+            "draw": "get_hourly_forecast",
+        },
+        {
+            "key": "daily_forecast",
+            "api": "get_daily_forecast",
+            "draw": "get_daily_forecast",
+            "cache_seconds": 21600,
+        },
+        {
+            "key": "warning",
+            "api": "get_warning",
+            "draw": "get_warning",
+        },
+        {
+            "key": "air_quality",
+            "api": "get_air_quality",
+            "draw": "get_air_quality",
+        },
+        {
+            "key": "precipitation",
+            "api": "get_precipitation",
+            "draw": "get_precipitation",
+            "cache_seconds": 600,
+        },
+    ]
+    cache: dict[str, Any] = {}
+
+    @classmethod
+    def stats(self):
+        if not self.cache:
+            draw_config = config.THEME_DATA["STATS"]["WEATHER"]["GRAPH"]
+            weather_config = config.CONFIG_DATA.get("custom", {}).get("WEATHER", {})
+            if not draw_config.get("SHOW", False) or not (weather_config.get("KEY") and weather_config.get("PUBLICID")):
+                self.cache.update({
+                    "show": False,
+                })
+                return
+
+            font = draw_config.get("FONT", "roboto-mono/RobotoMono-Regular.ttf")
+            font_cache = display.lcd.font_cache
+            if (font, 12) not in font_cache:
+                font_cache[(font, 12)] = ImageFont.truetype("./res/fonts/" + font, 12)
+            if (font, 18) not in font_cache:
+                font_cache[(font, 18)] = ImageFont.truetype("./res/fonts/" + font, 18)
+
+            if draw_config.get("BACKGROUND_IMAGE"):
+                x = draw_config.get("X", 0)
+                y = draw_config.get("Y", 0)
+                basic_image = display.lcd.open_image(get_theme_file_path(draw_config.get("BACKGROUND_IMAGE"))).crop(
+                    (x, y, x + 200, y + 80))
+            else:
+                background_color = draw_config.get("BACKGROUND_COLOR", (0, 0, 0))
+                if isinstance(background_color, str):
+                    background_color = tuple(map(int, background_color.split(",")))
+                basic_image = Image.new("RGB", (200, 80), background_color)
+
+            draw = sensors_weather.WeatherDraw(
+                font_cache[(font, 12)],
+                font_cache[(font, 18)],
+                draw_config.get("FONT_COLOR", (255, 255, 255)),
+                basic_image,
+            )
+
+            api = sensors_weather.WeatherApi(
+                weather_config.get("KEY", ""),
+                weather_config.get("PUBLICID", ""),
+                weather_config.get("LOCATIONID", ""),
+                weather_config.get("COORDINATES", ""),
+            )
+
+            self.cache.update({
+                "show": True,
+                "api": api,
+                "draw": draw,
+                "draw_config": draw_config,
+                "images": {},
+                "last_index": -1,
+                "last_image": None,
+            })
+
+        if not self.cache.get("show", False):
+            return
+
+        duration = max(2, int(self.cache.get("draw_config", {}).get("DURATION", 10)))
+        now = time.time()
+        index = int(now) // duration % len(self.IMAGES_LIST)
+        image_data = self.IMAGES_LIST[index]
+        key = image_data["key"]
+        cache_seconds = image_data.get("cache_seconds", 30 * 60)
+        if key not in self.cache["images"] or now - self.cache["images"][key]["time"] > cache_seconds:
+            data = getattr(self.cache["api"], image_data["api"])()
+            image = getattr(self.cache["draw"], image_data["draw"])(data)
+            self.cache["images"][key] = {
+                "image": image,
+                "time": now // cache_seconds * cache_seconds,
+            }
+            logger.debug(f"Updated weather image: {key} ({datetime.datetime.fromtimestamp(now // cache_seconds * cache_seconds).strftime('%Y-%m-%d %H:%M:%S')})")
+
+        if index != self.cache["last_index"]:
+            x = self.cache["draw_config"].get("X", 0)
+            y = self.cache["draw_config"].get("Y", 0)
+            image = self.cache["images"][key]["image"]
+            if int(now) % duration == 0 and self.cache["last_image"] != None:
+                new_image = image.copy()
+                new_image.putalpha(int(now % 1 * 256))
+                last_image = self.cache["last_image"].copy()
+                last_image.paste(new_image, (0, 0), new_image)
+                display.lcd.DisplayPILImage(last_image, x, y)
+            else:
+                display.lcd.DisplayPILImage(image, x, y)
+                self.cache["last_index"] = index
+                self.cache["last_image"] = image

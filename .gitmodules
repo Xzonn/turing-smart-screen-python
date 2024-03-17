@@ -1,0 +1,3 @@
+[submodule "external/qweather-icons"]
+	path = external/qweather-icons
+	url = https://github.com/qwd/Icons.git
