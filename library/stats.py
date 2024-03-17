@@ -87,7 +87,7 @@ def get_theme_file_path(name):
 
 def display_themed_value(theme_data, value, min_size=0, unit=''):
     if not theme_data.get("SHOW", False):
-        return
+        return None, 0, 0
 
     if value is None:
         return
@@ -99,7 +99,7 @@ def display_themed_value(theme_data, value, min_size=0, unit=''):
     if theme_data.get("SHOW_UNIT", True) and unit:
         text += str(unit)
 
-    display.lcd.DisplayText(
+    return display.lcd.DisplayText(
         text=text,
         x=theme_data.get("X", 0),
         y=theme_data.get("Y", 0),
@@ -116,7 +116,7 @@ def display_themed_value(theme_data, value, min_size=0, unit=''):
 
 
 def display_themed_percent_value(theme_data, value):
-    display_themed_value(
+    return display_themed_value(
         theme_data=theme_data,
         value=int(value),
         min_size=3,
@@ -125,7 +125,7 @@ def display_themed_percent_value(theme_data, value):
 
 
 def display_themed_temperature_value(theme_data, value):
-    display_themed_value(
+    return display_themed_value(
         theme_data=theme_data,
         value=int(value),
         min_size=3,
@@ -135,9 +135,9 @@ def display_themed_temperature_value(theme_data, value):
 
 def display_themed_progress_bar(theme_data, value):
     if not theme_data.get("SHOW", False):
-        return
+        return None, 0, 0
 
-    display.lcd.DisplayProgressBar(
+    return display.lcd.DisplayProgressBar(
         x=theme_data.get("X", 0),
         y=theme_data.get("Y", 0),
         width=theme_data.get("WIDTH", 0),
@@ -154,7 +154,7 @@ def display_themed_progress_bar(theme_data, value):
 
 def display_themed_radial_bar(theme_data, value, min_size=0, unit='', custom_text=None):
     if not theme_data.get("SHOW", False):
-        return
+        return None, 0, 0
 
     if theme_data.get("SHOW_TEXT", False):
         if custom_text:
@@ -166,7 +166,7 @@ def display_themed_radial_bar(theme_data, value, min_size=0, unit='', custom_tex
     else:
         text = ""
 
-    display.lcd.DisplayRadialProgressBar(
+    return display.lcd.DisplayRadialProgressBar(
         xc=theme_data.get("X", 0),
         yc=theme_data.get("Y", 0),
         radius=theme_data.get("RADIUS", 1),
@@ -190,7 +190,7 @@ def display_themed_radial_bar(theme_data, value, min_size=0, unit='', custom_tex
 
 
 def display_themed_percent_radial_bar(theme_data, value):
-    display_themed_radial_bar(
+    return display_themed_radial_bar(
         theme_data=theme_data,
         value=int(value),
         unit="%",
@@ -199,7 +199,7 @@ def display_themed_percent_radial_bar(theme_data, value):
 
 
 def display_themed_temperature_radial_bar(theme_data, value):
-    display_themed_radial_bar(
+    return display_themed_radial_bar(
         theme_data=theme_data,
         value=int(value),
         min_size=3,
@@ -209,11 +209,11 @@ def display_themed_temperature_radial_bar(theme_data, value):
 
 def display_themed_line_graph(theme_data, values):
     if not theme_data.get("SHOW", False):
-        return
+        return None, 0, 0
 
     line_color = theme_data.get("LINE_COLOR", (0, 0, 0))
 
-    display.lcd.DisplayLineGraph(
+    return display.lcd.DisplayLineGraph(
         x=theme_data.get("X", 0),
         y=theme_data.get("Y", 0),
         width=theme_data.get("WIDTH", 1),
@@ -825,6 +825,7 @@ class Custom:
                 if theme_data is not None and last_values is not None:
                     display_themed_line_graph(theme_data=theme_data, values=last_values)
 
+
 import time
 from typing import Any
 from PIL import Image, ImageFont
@@ -925,12 +926,13 @@ class Weather:
         if not self.cache.get("show", False):
             return
 
-        duration = max(2, int(self.cache.get("draw_config", {}).get("DURATION", 10)))
+        draw_config = self.cache.get("draw_config", {})
+        duration = max(2, draw_config.get("DURATION", 10))
         now = time.time()
         index = int(now) // duration % len(self.IMAGES_LIST)
         image_data = self.IMAGES_LIST[index]
         key = image_data["key"]
-        cache_seconds = image_data.get("cache_seconds", 30 * 60)
+        cache_seconds = image_data.get("cache_seconds", 1800)
         if key not in self.cache["images"] or now - self.cache["images"][key]["time"] > cache_seconds:
             data = getattr(self.cache["api"], image_data["api"])()
             image = getattr(self.cache["draw"], image_data["draw"])(data)
@@ -938,11 +940,13 @@ class Weather:
                 "image": image,
                 "time": now // cache_seconds * cache_seconds,
             }
-            logger.debug(f"Updated weather image: {key} ({datetime.datetime.fromtimestamp(now // cache_seconds * cache_seconds).strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.debug(
+                f"Updated weather image: {key} ({datetime.datetime.fromtimestamp(now // cache_seconds * cache_seconds).strftime('%Y-%m-%d %H:%M:%S')})"
+            )
 
         if index != self.cache["last_index"]:
-            x = self.cache["draw_config"].get("X", 0)
-            y = self.cache["draw_config"].get("Y", 0)
+            x = draw_config.get("X", 0)
+            y = draw_config.get("Y", 0)
             image = self.cache["images"][key]["image"]
             if int(now) % duration == 0 and self.cache["last_image"] != None:
                 new_image = image.copy()
@@ -952,5 +956,76 @@ class Weather:
                 display.lcd.DisplayPILImage(last_image, x, y)
             else:
                 display.lcd.DisplayPILImage(image, x, y)
+                self.cache["last_index"] = index
+                self.cache["last_image"] = image
+
+
+import library.sensors.sensors_rss as sensors_rss
+
+
+class Rss:
+    cache: dict[str, Any] = {}
+
+    @classmethod
+    def stats(self):
+        if not self.cache:
+            draw_config = config.THEME_DATA["STATS"]["RSS"]["TEXT"]
+            rss_config = config.CONFIG_DATA.get("custom", {}).get("RSS", [])
+            if not draw_config.get("SHOW", False) or not rss_config:
+                self.cache.update({
+                    "show": False,
+                })
+                return
+
+            display_themed_value(draw_config, "新闻正在载入……")
+            feed_list = []
+            for feed in rss_config:
+                feed_list.append(sensors_rss.Feed(
+                    feed["URL"],
+                    feed.get("TITLE", ""),
+                    feed.get("LIMIT", 10),
+                ))
+
+            self.cache.update({
+                "show": True,
+                "feed_list": feed_list,
+                "draw_config": draw_config,
+                "item_list": [],
+                "last_index": -1,
+                "last_image": None,
+                "offset": 0,
+            })
+
+        if not self.cache.get("show", False):
+            return
+
+        draw_config = self.cache.get("draw_config", {})
+        duration = max(2, int(draw_config.get("DURATION", 10)))
+        now = time.time()
+        item_list = self.cache["item_list"]
+
+        index = 0 if not item_list else (int(now) // duration - self.cache["offset"]) % len(item_list)
+        if index == 0:
+            item_list = []
+            for feed in self.cache["feed_list"]:
+                items = feed.get_items()
+                if not items:
+                    continue
+                item_list.append(feed.title)
+                for item in items:
+                    item_list.append(item["title"])
+            self.cache["item_list"] = item_list
+            self.cache["offset"] = int(now) // duration
+
+        text = item_list[index]
+        if index != self.cache["last_index"]:
+            image, x, y = display_themed_value(draw_config, text)
+            if int(now) % duration == 0 and self.cache["last_image"] != None:
+                new_image = image.copy()
+                new_image.putalpha(int(now % 1 * 256))
+                last_image = self.cache["last_image"].copy()
+                last_image.paste(new_image, (0, 0), new_image)
+                display.lcd.DisplayPILImage(last_image, x, y)
+            else:
                 self.cache["last_index"] = index
                 self.cache["last_image"] = image

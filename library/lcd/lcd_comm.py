@@ -203,6 +203,7 @@ class LcdComm(ABC):
     def DisplayBitmap(self, bitmap_path: str, x: int = 0, y: int = 0, width: int = 0, height: int = 0):
         image = self.open_image(bitmap_path)
         self.DisplayPILImage(image, x, y, width, height)
+        return image, x, y
 
     def DisplayText(
             self,
@@ -289,6 +290,7 @@ class LcdComm(ABC):
         text_image = text_image.crop(box=(left, top, right, bottom))
 
         self.DisplayPILImage(text_image, left, top)
+        return text_image, left, top
 
     def DisplayProgressBar(self, x: int, y: int, width: int, height: int, min_value: int = 0, max_value: int = 100,
                            value: int = 50,
@@ -340,6 +342,7 @@ class LcdComm(ABC):
             draw.rectangle([0, 0, width - 1, height - 1], fill=None, outline=bar_color)
 
         self.DisplayPILImage(bar_image, x, y)
+        return bar_image, x, y
 
     def DisplayLineGraph(self, x: int, y: int, width: int, height: int,
                          values: List[float],
@@ -440,6 +443,7 @@ class LcdComm(ABC):
                       font=font, fill=axis_color)
 
         self.DisplayPILImage(graph_image, x, y)
+        return graph_image, x, y
 
     def DisplayRadialProgressBar(self, xc: int, yc: int, radius: int, bar_width: int,
                                  min_value: int = 0,
@@ -593,6 +597,7 @@ class LcdComm(ABC):
                       font=font, fill=font_color)
 
         self.DisplayPILImage(bar_image, xc - radius, yc - radius)
+        return bar_image, xc - radius, yc - radius
 
     # Load image from the filesystem, or get from the cache if it has already been loaded previously
     def open_image(self, bitmap_path: str) -> Image.Image:

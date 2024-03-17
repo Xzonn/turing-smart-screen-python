@@ -10,6 +10,9 @@ sv-ttk~=2.6.0          # Tk Sun Valley theme for configuration editor
 tkinter-tooltip~=3.1.0 # Tooltips for configuration editor
 uptime~=3.0.1          # For System Uptime 
 
+requests~=2.31.0       # For online api
+feedparser~=6.0.11     # For RSS feed
+
 # Efficient image serialization
 numpy~=1.24.4; python_version < "3.9"   # For Python 3.8 max.
 numpy~=1.26.4; python_version >= "3.9"  # For Python 3.9+

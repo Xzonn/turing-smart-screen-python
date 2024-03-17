@@ -224,3 +224,7 @@ STATS:
     INTERVAL: 0
     GRAPH:
       SHOW: False
+  RSS:
+    INTERVAL: 0
+    TEXT:
+      SHOW: False
