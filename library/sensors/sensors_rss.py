@@ -20,6 +20,7 @@ class Feed:
         self.title = title or url
         self.limit = limit
         self._feeds: list[dict[str, str]] = []
+        self._updating = False
         self._updated = 0
 
         self._cache_path = f".cache/rss/{self.title}.json"
@@ -28,7 +29,7 @@ class Feed:
                 self._feeds = json.load(reader)
             self._updated = os.path.getmtime(self._cache_path)
 
-        self._update()
+        self.get_items()
 
     def get_items(self) -> list[dict[str, str]]:
         if time.time() - self._updated > 1800:
@@ -37,10 +38,15 @@ class Feed:
         return self._feeds[:self.limit]
 
     def _update(self, url: str = "") -> bool:
+        if self._updating:
+            return False
+        
+        self._updating = True
         try:
             parsed = feedparser.parse(url or self.url)["entries"]
         except Exception as e:
             logger.error("Exception while parsing rss feed: %s" % str(e))
+            self._updating = False
             return False
 
         feeds = []
@@ -61,4 +67,5 @@ class Feed:
         self._feeds = feeds
         self._updated = time.time()
         logger.debug(f"Updated feed: {self.title} ({len(self._feeds)} items)")
+        self._updating = False
         return True

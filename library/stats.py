@@ -881,29 +881,31 @@ class Weather:
                 })
                 return
 
-            font = draw_config.get("FONT", "roboto-mono/RobotoMono-Regular.ttf")
+            ratio: int = draw_config.get("RATIO", 1)
+            font: str = draw_config.get("FONT", "roboto-mono/RobotoMono-Regular.ttf")
             font_cache = display.lcd.font_cache
-            if (font, 12) not in font_cache:
-                font_cache[(font, 12)] = ImageFont.truetype("./res/fonts/" + font, 12)
-            if (font, 18) not in font_cache:
-                font_cache[(font, 18)] = ImageFont.truetype("./res/fonts/" + font, 18)
+            for size in (12, 18):
+                true_size = int(size * ratio)
+                if (font, true_size) not in font_cache:
+                    font_cache[(font, true_size)] = ImageFont.truetype("./res/fonts/" + font, true_size)
 
             if draw_config.get("BACKGROUND_IMAGE"):
                 x = draw_config.get("X", 0)
                 y = draw_config.get("Y", 0)
                 basic_image = display.lcd.open_image(get_theme_file_path(draw_config.get("BACKGROUND_IMAGE"))).crop(
-                    (x, y, x + 200, y + 80))
+                    (x, y, x + int(200 * ratio), y + int(80 * ratio)))
             else:
                 background_color = draw_config.get("BACKGROUND_COLOR", (0, 0, 0))
                 if isinstance(background_color, str):
                     background_color = tuple(map(int, background_color.split(",")))
-                basic_image = Image.new("RGB", (200, 80), background_color)
+                basic_image = Image.new("RGB", (int(200 * ratio), int(80 * ratio)), background_color)
 
             draw = sensors_weather.WeatherDraw(
-                font_cache[(font, 12)],
-                font_cache[(font, 18)],
+                font_cache[(font, int(12 * ratio))],
+                font_cache[(font, int(18 * ratio))],
                 draw_config.get("FONT_COLOR", (255, 255, 255)),
                 basic_image,
+                ratio,
             )
 
             api = sensors_weather.WeatherApi(
@@ -948,7 +950,7 @@ class Weather:
             x = draw_config.get("X", 0)
             y = draw_config.get("Y", 0)
             image = self.cache["images"][key]["image"]
-            if int(now) % duration == 0 and self.cache["last_image"] != None:
+            if draw_config.get("ANIMATION", False) and int(now) % duration == 0 and self.cache["last_image"] != None:
                 new_image = image.copy()
                 new_image.putalpha(int(now % 1 * 256))
                 last_image = self.cache["last_image"].copy()
@@ -1017,10 +1019,13 @@ class Rss:
             self.cache["item_list"] = item_list
             self.cache["offset"] = int(now) // duration
 
+        if not item_list:
+            return
+
         text = item_list[index]
         if index != self.cache["last_index"]:
             image, x, y = display_themed_value(draw_config, text)
-            if int(now) % duration == 0 and self.cache["last_image"] != None:
+            if draw_config.get("ANIMATION", False) and int(now) % duration == 0 and self.cache["last_image"] != None:
                 new_image = image.copy()
                 new_image.putalpha(int(now % 1 * 256))
                 last_image = self.cache["last_image"].copy()
