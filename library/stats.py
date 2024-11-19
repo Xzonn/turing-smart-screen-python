@@ -936,15 +936,18 @@ class Weather:
         key = image_data["key"]
         cache_seconds = image_data.get("cache_seconds", 1800)
         if key not in self.cache["images"] or now - self.cache["images"][key]["time"] > cache_seconds:
-            data = getattr(self.cache["api"], image_data["api"])()
-            image = getattr(self.cache["draw"], image_data["draw"])(data)
-            self.cache["images"][key] = {
-                "image": image,
-                "time": now // cache_seconds * cache_seconds,
-            }
-            logger.debug(
-                f"Updated weather image: {key} ({datetime.datetime.fromtimestamp(now // cache_seconds * cache_seconds).strftime('%Y-%m-%d %H:%M:%S')})"
-            )
+            try:
+                data = getattr(self.cache["api"], image_data["api"])()
+                image = getattr(self.cache["draw"], image_data["draw"])(data)
+                self.cache["images"][key] = {
+                    "image": image,
+                    "time": now // cache_seconds * cache_seconds,
+                }
+                logger.debug(
+                    f"Updated weather image: {key} ({datetime.datetime.fromtimestamp(now // cache_seconds * cache_seconds).strftime('%Y-%m-%d %H:%M:%S')})"
+                )
+            except Exception as e:
+                logger.error(f"Failed to update weather image: {key} ({e})")
 
         if index != self.cache["last_index"]:
             x = draw_config.get("X", 0)

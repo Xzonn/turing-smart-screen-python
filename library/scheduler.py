@@ -26,6 +26,7 @@ from functools import wraps
 
 import library.config as config
 import library.stats as stats
+from library.log import logger
 
 STOPPING = False
 
@@ -172,7 +173,10 @@ def CustomStats():
 @schedule(timedelta(seconds=config.THEME_DATA['STATS']['WEATHER'].get("INTERVAL", None)).total_seconds())
 def WeatherStats():
     # print("Refresh weather stats")
-    stats.Weather.stats()
+    try:
+        stats.Weather.stats()
+    except Exception as e:
+        logger.error(f"Error while refreshing weather stats: {e}")
 
 
 @async_job("Rss_Stats")

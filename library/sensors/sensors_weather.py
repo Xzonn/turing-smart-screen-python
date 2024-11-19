@@ -36,7 +36,7 @@ class WeatherApi:
         query = "&".join([f"{k}={v}" for k, v in sorted(data.items())])
         data["sign"] = hashlib.md5((query + self.key).encode("utf-8")).hexdigest()
 
-        response = requests.get(f"{self.API_HOST}{path}", params=data)
+        response = requests.get(f"{self.API_HOST}{path}", params=data, timeout=10)
         if response.status_code != 200:
             return {}
         else:

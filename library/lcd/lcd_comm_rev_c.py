@@ -223,7 +223,7 @@ class LcdCommRevC(LcdComm):
         backup_orientation = self.orientation
         self.SetOrientation(orientation=Orientation.PORTRAIT)
 
-        blank = Image.new("RGB", (self.get_width(), self.get_height()), (255, 255, 255))
+        blank = Image.new("RGB", (self.get_width(), self.get_height()), (0, 0, 0))
         self.DisplayPILImage(blank)
 
         # Restore orientation
@@ -233,7 +233,8 @@ class LcdCommRevC(LcdComm):
         logger.info("Calling ScreenOff")
         self._send_command(Command.STOP_VIDEO)
         self._send_command(Command.STOP_MEDIA, readsize=1024)
-        self._send_command(Command.TURNOFF)
+        self.Clear()
+        # self._send_command(Command.TURNOFF)
 
     def ScreenOn(self):
         logger.info("Calling ScreenOn")
